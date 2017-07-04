@@ -186,6 +186,7 @@ ifacedef	: ifacehead '{' ifaceparams  '}' ';'
 
 ifacehead	: T_INTERFACE name
 		{
+			struct Interface * last_iface = NULL;
 			iface = IfaceList;
 
 			while (iface)
@@ -194,22 +195,33 @@ ifacehead	: T_INTERFACE name
 				{
 					flog(LOG_ERR, "duplicate interface "
 						"definition for %s", $2);
-					ABORT;
+					break;
 				}
+				last_iface = iface;
 				iface = iface->next;
 			}
 
-			iface = malloc(sizeof(struct Interface));
-
 			if (iface == NULL) {
-				flog(LOG_CRIT, "malloc failed: %s", strerror(errno));
-				ABORT;
-			}
+				iface = malloc(sizeof(struct Interface));
 
-			iface_init_defaults(iface);
-			strncpy(iface->props.name, $2, IFNAMSIZ-1);
-			iface->props.name[IFNAMSIZ-1] = '\0';
-			iface->lineno = num_lines;
+				if (iface == NULL) {
+					flog(LOG_CRIT, "malloc failed: %s", strerror(errno));
+					ABORT;
+				}
+
+				iface_init_defaults(iface);
+				strncpy(iface->props.name, $2, IFNAMSIZ-1);
+				iface->props.name[IFNAMSIZ-1] = '\0';
+				iface->lineno = num_lines;
+			} else {
+				if (last_iface) {
+					last_iface->next = iface->next;
+				} else {
+					IfaceList = NULL;
+				}
+
+				iface->next = NULL;
+			}
 		}
 		;
 
